@@ -1,26 +1,37 @@
 const jwt = require("jsonwebtoken");
 
-// Constants.
+// JWT constants.
 const JWT_PRIVATE_KEY = process.env.JWT_PRIVATE_KEY;
-const JWT_EXPIRATION_TIME = "1h";
+const JWT_EXPIRATION_TIME_IN_HOURS = "1h";
+const JWT_RS256_ALGORITHM = "RS256";
+
+// HTTP constants.
+const HTTP_SUCCESS_STATUS_CODE = 200;
+const HTTP_BAD_REQUEST_STATUS_CODE = 400;
+const HTTP_INTERNAL_SERVER_ERROR_STATUS_CODE = 500;
+const HTTP_HEADER_CONTENT_TYPE_KEY = "content-type";
+const HTTP_HEADER_JSON_CONTENT_TYPE = "application/json";
+
+// General constants.
+const STRING_TYPE = "string";
 
 exports.handler = async (event) => {
   try {
     // Gets event body.
     const body =
-      typeof event.body === "string" ? JSON.parse(event.body) : event.body;
+      typeof event.body === STRING_TYPE ? JSON.parse(event.body) : event.body;
 
     // Client will be identified by national id.
     const nationalId = body.nationalId;
 
     if (!nationalId) {
       return {
-        statusCode: 400,
+        statusCode: HTTP_BAD_REQUEST_STATUS_CODE,
       };
     }
   } catch (error) {
     return {
-      statusCode: 400,
+      statusCode: HTTP_BAD_REQUEST_STATUS_CODE,
     };
   }
 
@@ -39,8 +50,8 @@ exports.handler = async (event) => {
       sub: 1111111111,
     },
     options: {
-      expiresIn: JWT_EXPIRATION_TIME,
-      algorithm: "RS256",
+      expiresIn: JWT_EXPIRATION_TIME_IN_HOURS,
+      algorithm: JWT_RS256_ALGORITHM,
     },
   };
 
@@ -52,14 +63,15 @@ exports.handler = async (event) => {
     );
 
     return {
-      headers: { "content-type": "application/json" },
-      statusCode: 200,
+      headers: {
+        [HTTP_HEADER_CONTENT_TYPE_KEY]: HTTP_HEADER_JSON_CONTENT_TYPE,
+      },
+      statusCode: HTTP_SUCCESS_STATUS_CODE,
       body: JSON.stringify({ token }),
     };
   } catch (error) {
     return {
-      statusCode: 500,
-      body: "asd " + error,
+      statusCode: HTTP_INTERNAL_SERVER_ERROR_STATUS_CODE,
     };
   }
 };
