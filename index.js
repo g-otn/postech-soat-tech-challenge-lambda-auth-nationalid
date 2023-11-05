@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 
 const JWT_PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----\n${process.env.JWT_PRIVATE_KEY}\n-----END RSA PRIVATE KEY-----`;
 
-const HOST = '';
+const BACKEND_URL = process.env.BACKEND_URL; // Internal ALB for ECS
 
 /**
  *
@@ -26,15 +26,12 @@ const getNationalIdFromEvent = (event) => {
 };
 
 const getClientIdByNationalId = async (nationalId) => {
-  return 123;
-  const response = await fetch(
-    `${HOST}/clients/identification?nationalId=${nationalId}`,
+  const { id } = await fetch(
+    `${BACKEND_URL}/clients/identification?nationalId=${nationalId}`,
     { method: 'POST' }
-  ).catch((err) => {
-    console.error('Error during identification request', err);
-  });
+  ).then((res) => res.json());
 
-  return response.data.id;
+  return String(id);
 };
 
 /**
@@ -52,7 +49,7 @@ exports.handler = async (event) => {
     const clientId = await getClientIdByNationalId(nationalId);
 
     try {
-      const token = jwt.sign({ sub: clientId }, JWT_PRIVATE_KEY, {
+      const token = jwt.sign({ sub: clientId.toString() }, JWT_PRIVATE_KEY, {
         expiresIn: '1h',
         algorithm: 'RS256',
       });
@@ -60,9 +57,16 @@ exports.handler = async (event) => {
       return result(200, { token });
     } catch (error) {
       console.error('Error while generating token', error);
-      return result(500, { message: 'Error while generating token' });
+      return result(500, {
+        message: 'Error while generating token',
+        error: error?.message,
+      });
     }
   } catch (error) {
-    return result(500, { message: 'Error while verifying national ID' });
+    console.error('Error while verifying national ID', error);
+    return result(500, {
+      message: 'Error while verifying national ID',
+      error: error?.message,
+    });
   }
 };
