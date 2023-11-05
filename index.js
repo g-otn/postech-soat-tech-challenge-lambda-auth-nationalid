@@ -1,77 +1,68 @@
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
-// JWT constants.
-const JWT_PRIVATE_KEY = process.env.JWT_PRIVATE_KEY;
-const JWT_EXPIRATION_TIME_IN_HOURS = "1h";
-const JWT_RS256_ALGORITHM = "RS256";
+const JWT_PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----\n${process.env.JWT_PRIVATE_KEY}\n-----END RSA PRIVATE KEY-----`;
 
-// HTTP constants.
-const HTTP_SUCCESS_STATUS_CODE = 200;
-const HTTP_BAD_REQUEST_STATUS_CODE = 400;
-const HTTP_INTERNAL_SERVER_ERROR_STATUS_CODE = 500;
-const HTTP_HEADER_CONTENT_TYPE_KEY = "content-type";
-const HTTP_HEADER_JSON_CONTENT_TYPE = "application/json";
+const HOST = '';
 
-// General constants.
-const STRING_TYPE = "string";
+/**
+ *
+ * @param {number} statusCode
+ * @param {any} body
+ * @returns {Promise<AWSLambda.APIGatewayProxyResult}
+ */
+const result = (statusCode, body = null) => {
+  return {
+    headers: { 'content-type': 'application/json' },
+    statusCode,
+    body: JSON.stringify(body),
+  };
+};
 
+/**
+ * @param {AWSLambda.APIGatewayEvent} event
+ */
+const getNationalIdFromEvent = (event) => {
+  return event.queryStringParameters?.nationalId;
+};
+
+const getClientIdByNationalId = async (nationalId) => {
+  return 123;
+  const response = await fetch(
+    `${HOST}/clients/identification?nationalId=${nationalId}`,
+    { method: 'POST' }
+  ).catch((err) => {
+    console.error('Error during identification request', err);
+  });
+
+  return response.data.id;
+};
+
+/**
+ * @param {AWSLambda.APIGatewayEvent} event
+ * @returns {Promise<AWSLambda.APIGatewayProxyResult}
+ */
 exports.handler = async (event) => {
-  try {
-    // Gets event body.
-    const body =
-      typeof event.body === STRING_TYPE ? JSON.parse(event.body) : event.body;
+  const nationalId = await getNationalIdFromEvent(event);
 
-    // Client will be identified by national id.
-    const nationalId = body.nationalId;
-
-    if (!nationalId) {
-      return {
-        statusCode: HTTP_BAD_REQUEST_STATUS_CODE,
-      };
-    }
-  } catch (error) {
-    return {
-      statusCode: HTTP_BAD_REQUEST_STATUS_CODE,
-    };
+  if (!nationalId) {
+    return result(400, { message: 'Missing national ID' });
   }
 
-  ////////////////////////////////////////////////////////////////////////
-
-  // TODO gets client by national id, creates it if no national id matches.
-
-  ////////////////////////////////////////////////////////////////////////
-
-  // TODO pass client id to 'sub' instead of using this '1111111111' hardcoded value.
-  // Object that stores values used by 'jsonwebtoken - sign' function call.
-  // Sub represents the client ID.
-  const jwtSettings = {
-    privateKey: JWT_PRIVATE_KEY,
-    payload: {
-      sub: 1111111111,
-    },
-    options: {
-      expiresIn: JWT_EXPIRATION_TIME_IN_HOURS,
-      algorithm: JWT_RS256_ALGORITHM,
-    },
-  };
-
   try {
-    const token = jwt.sign(
-      jwtSettings.payload,
-      jwtSettings.privateKey,
-      jwtSettings.options
-    );
+    const clientId = await getClientIdByNationalId(nationalId);
 
-    return {
-      headers: {
-        [HTTP_HEADER_CONTENT_TYPE_KEY]: HTTP_HEADER_JSON_CONTENT_TYPE,
-      },
-      statusCode: HTTP_SUCCESS_STATUS_CODE,
-      body: JSON.stringify({ token }),
-    };
+    try {
+      const token = jwt.sign({ sub: clientId }, JWT_PRIVATE_KEY, {
+        expiresIn: '1h',
+        algorithm: 'RS256',
+      });
+
+      return result(200, { token });
+    } catch (error) {
+      console.error('Error while generating token', error);
+      return result(500, { message: 'Error while generating token' });
+    }
   } catch (error) {
-    return {
-      statusCode: HTTP_INTERNAL_SERVER_ERROR_STATUS_CODE,
-    };
+    return result(500, { message: 'Error while verifying national ID' });
   }
 };
