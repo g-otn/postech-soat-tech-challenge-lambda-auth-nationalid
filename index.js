@@ -26,12 +26,14 @@ const getNationalIdFromEvent = (event) => {
 };
 
 const getClientIdByNationalId = async (nationalId) => {
-  const { id } = await fetch(
+  const data = await fetch(
     `${BACKEND_URL}/clients/identification?nationalId=${nationalId}`,
     { method: 'POST' }
   ).then((res) => res.json());
 
-  return String(id);
+  console.log('identification response', data);
+
+  return String(data.id);
 };
 
 /**
@@ -47,6 +49,10 @@ exports.handler = async (event) => {
 
   try {
     const clientId = await getClientIdByNationalId(nationalId);
+
+    if (!clientId) {
+      throw new Error('No client ID received from backend');
+    }
 
     try {
       const token = jwt.sign({ sub: clientId.toString() }, JWT_PRIVATE_KEY, {
