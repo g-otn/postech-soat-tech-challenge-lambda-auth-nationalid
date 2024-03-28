@@ -31,7 +31,11 @@ const getClientIdByNationalId = async (nationalId) => {
     { method: 'POST' }
   ).then((res) => res.json());
 
-  return String(id);
+  if (!id) throw 'No ID returned from service:' + id;
+
+  console.log('Succesfully retrived client', id);
+
+  return id;
 };
 
 /**
@@ -56,14 +60,14 @@ exports.handler = async (event) => {
 
       return result(200, { token });
     } catch (error) {
-      console.error('Error while generating token', error);
+      console.error('Error while generating token:', error);
       return result(500, {
         message: 'Error while generating token',
         error: error?.message,
       });
     }
   } catch (error) {
-    console.error('Error while verifying national ID', error);
+    console.error('Error while verifying national ID:', error);
     return result(500, {
       message: 'Error while verifying national ID',
       error: error?.message,
